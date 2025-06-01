@@ -4,7 +4,6 @@ const path = require('path');
 const sqlite3 = require('sqlite3').verbose();
 const { parse } = require('querystring');
 
-// Setup SQLite DB
 const db = new sqlite3.Database('users.db');
 db.run(`CREATE TABLE IF NOT EXISTS users (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -14,10 +13,8 @@ db.run(`CREATE TABLE IF NOT EXISTS users (
 )`);
 
 const server = http.createServer((req, res) => {
-  // Serve static files (CSS, JS, images, etc.) from the /static folder
-  // Your CSS file should be here: project_root/static/style.css
   if (req.method === 'GET' && req.url.startsWith('/static/')) {
-    const filePath = path.join(__dirname, req.url); // maps /static/style.css → project_root/static/style.css
+    const filePath = path.join(__dirname, req.url);
 
     fs.readFile(filePath, (err, content) => {
       if (err) {
@@ -40,7 +37,6 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // Serve HTML pages
   if (req.method === 'GET') {
     let filePath = '';
     if (req.url === '/' || req.url === '/LogIn.html') {
@@ -67,7 +63,6 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // Handle form submission to create account
 if (req.method === 'POST' && req.url === '/submit') {
   let body = '';
 
@@ -85,13 +80,13 @@ if (req.method === 'POST' && req.url === '/submit') {
       return;
     }
 
-    // First check if email already exists
+
     db.get('SELECT * FROM users WHERE email = ?', [email], (err, row) => {
       if (err) {
         res.writeHead(500, { 'Content-Type': 'text/plain' });
         res.end('Database error');
       } else if (row) {
-        // Email already exists — return HTML with JS alert
+
         res.writeHead(200, { 'Content-Type': 'text/html' });
         res.end(`
           <script>
@@ -100,7 +95,7 @@ if (req.method === 'POST' && req.url === '/submit') {
           </script>
         `);
       } else {
-        // Email is free — insert user
+
         db.run(
           'INSERT INTO users (email, fullname, password) VALUES (?, ?, ?)',
           [email, fullname, password],
@@ -109,7 +104,7 @@ if (req.method === 'POST' && req.url === '/submit') {
               res.writeHead(500, { 'Content-Type': 'text/plain' });
               res.end('Database insert error');
             } else {
-              // Show success popup + redirect to login
+
               res.writeHead(200, { 'Content-Type': 'text/html' });
               res.end(`
                 <script>
@@ -127,7 +122,6 @@ if (req.method === 'POST' && req.url === '/submit') {
   return;
 }
 
-  // Catch-all for unknown routes
   res.writeHead(404);
   res.end('Not found');
 });
