@@ -7,27 +7,11 @@ window.onload = function () {
 
 
     form.addEventListener("submit", function (event) {
-        if(email.value=="" || name.value == "" || password1.value =="" || password2.value == ""){
-            event.preventDefault();
-            showEmptyFieldAlert();
-        }
-        else if (password1.value !== password2.value) {
+        if (password1.value !== password2.value) {
             event.preventDefault();
             showPasswordMismatchAlert();
         }
     });
-
-    function showEmptyFieldAlert(){
-        if(document.getElementById("emptyFieldAlert")) return;
-        const alertDiv = document.createElement("div");
-        alertDiv.id="emptyFieldAlert";
-        alertDiv.className = "alert alert-danger mt-3";
-        alertDiv.role = "alert";
-        alertDiv.innerText = "All fields must be filled!";
-        form.appendChild(alertDiv);
-
-        setTimeout(() => alertDiv.remove(), 4000);
-    }
 
 
     function showPasswordMismatchAlert() {

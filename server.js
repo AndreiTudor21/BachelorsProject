@@ -2,7 +2,10 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const sqlite3 = require('sqlite3').verbose();
+const bcrypt = require('bcrypt');
 const { parse } = require('querystring');
+
+const saltRounds = 10;
 
 const db = new sqlite3.Database('users.db');
 db.run(`CREATE TABLE IF NOT EXISTS users (
@@ -63,64 +66,111 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-if (req.method === 'POST' && req.url === '/submit') {
-  let body = '';
+  if (req.method === 'POST' && req.url === '/submit') {
+    let body = '';
 
-  req.on('data', chunk => {
-    body += chunk.toString();
-  });
+    req.on('data', chunk => {
+      body += chunk.toString();
+    });
 
-  req.on('end', () => {
-    const formData = Object.fromEntries(new URLSearchParams(body));
-    const { email, fullname, password } = formData;
+    req.on('end', () => {
+      const formData = Object.fromEntries(new URLSearchParams(body));
+      const { email, fullname, password } = formData;
 
-    if (!email || !fullname || !password) {
-      res.writeHead(400, { 'Content-Type': 'text/plain' });
-      res.end('Missing required fields');
-      return;
-    }
+      if (!email || !fullname || !password) {
+        res.writeHead(400, { 'Content-Type': 'text/plain' });
+        res.end('Missing required fields');
+        return;
+      }
 
-
-    db.get('SELECT * FROM users WHERE email = ?', [email], (err, row) => {
-      if (err) {
-        res.writeHead(500, { 'Content-Type': 'text/plain' });
-        res.end('Database error');
-      } else if (row) {
-
-        res.writeHead(200, { 'Content-Type': 'text/html' });
-        res.end(`
-          <script>
-            alert("An account with this email already exists.");
-            window.location.href = "/Register.html";
-          </script>
-        `);
-      } else {
-
-        db.run(
-          'INSERT INTO users (email, fullname, password) VALUES (?, ?, ?)',
-          [email, fullname, password],
-          (err) => {
+      db.get('SELECT * FROM users WHERE email = ?', [email], (err, row) => {
+        if (err) {
+          res.writeHead(500, { 'Content-Type': 'text/plain' });
+          res.end('Database error');
+        } else if (row) {
+          res.writeHead(200, { 'Content-Type': 'text/html' });
+          res.end(`
+            <script>
+              alert("An account with this email already exists.");
+              window.location.href = "/Register.html";
+            </script>
+          `);
+        } else {
+          bcrypt.hash(password, saltRounds, (err, hashedPassword) => {
             if (err) {
               res.writeHead(500, { 'Content-Type': 'text/plain' });
-              res.end('Database insert error');
-            } else {
-
-              res.writeHead(200, { 'Content-Type': 'text/html' });
-              res.end(`
-                <script>
-                  alert("Account created successfully.");
-                  window.location.href = "/LogIn.html";
-                </script>
-              `);
+              res.end('Error hashing password');
+              return;
             }
-          }
-        );
-      }
+
+            db.run(
+              'INSERT INTO users (email, fullname, password) VALUES (?, ?, ?)',
+              [email, fullname, hashedPassword],
+              (err) => {
+                if (err) {
+                  res.writeHead(500, { 'Content-Type': 'text/plain' });
+                  res.end('Database insert error');
+                } else {
+                  res.writeHead(200, { 'Content-Type': 'text/html' });
+                  res.end(`
+                    <script>
+                      alert("Account created successfully.");
+                      window.location.href = "/LogIn.html";
+                    </script>
+                  `);
+                }
+              }
+            );
+          });
+        }
+      });
     });
-  });
 
   return;
+  }
+
+  if (req.method === "POST" && req.url === "/login") {
+  let body = "";
+
+  req.on("data", (chunk) => (body += chunk));
+  req.on("end", () => {
+    const { email, password } = Object.fromEntries(new URLSearchParams(body));
+
+    db.get("SELECT * FROM users WHERE email = ?", [email], (err, user) => {
+      if (err) {
+        res.writeHead(500, { "Content-Type": "application/json" });
+        return res.end(JSON.stringify({ error: "Database error" }));
+      }
+
+      if (!user) {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        return res.end(JSON.stringify({ error: "No account found for that e-mail." }));
+      }
+
+      bcrypt.compare(password, user.password, (err, ok) => {
+        if (err) {
+          res.writeHead(500, { "Content-Type": "application/json" });
+          return res.end(JSON.stringify({ error: "Password check error" }));
+        }
+
+        if (!ok) {
+          res.writeHead(200, { "Content-Type": "application/json" });
+          return res.end(JSON.stringify({ error: "Password incorrect. Try again." }));
+        }
+
+        // On successful login, set cookie and redirect
+        res.writeHead(200, {
+          "Content-Type": "application/json",
+          "Set-Cookie": `userEmail=${encodeURIComponent(email)}; HttpOnly; Path=/; SameSite=Lax`,
+        });
+        res.end(JSON.stringify({ redirect: "/Pacient.html" }));
+      });
+    });
+  });
+  return;
 }
+
+
 
   res.writeHead(404);
   res.end('Not found');

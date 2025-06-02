@@ -11,15 +11,15 @@
 </head>
 <body>
     <div class="d-flex justify-content-center align-items-center vh-100 vw-100">
-        <form id="loginform">
+        <form id="loginform" action="/login" method="POST">
             <div class="input-group">
-                <input type="email" class="form-control" id="InputEmail" name="email" aria-describedby="emailHelp" placeholder="Enter email">
+                <input type="email" class="form-control" id="InputEmail" name="email" aria-describedby="emailHelp" placeholder="Enter email" required>
                 <button class="btn btn-outline-secondary" type="button" id="clearInputEmail">
                     <img src="static\small_x.png" alt="small_x" width="24" height="24" />
                 </button>
             </div>
             <div class="input-group">
-            <input type="password" class="form-control" id="InputPassword" name="password" placeholder="Password">
+            <input type="password" class="form-control" id="InputPassword" name="password" placeholder="Password" required>
                 <button class="btn btn-outline-secondary" type="button" id="clearInputPassword">
                     <img src="static\small_x.png" alt="small_x" width="24" height="24" />
                 </button>
@@ -33,6 +33,7 @@
                     <a  class="btn btn-dark" role="button" href="./Register.html">Register</a>
                 </div>
             </div>
+            <div id="alert-placeholder"></div>
         </form>
     </div>
 </body>
