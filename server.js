@@ -8,12 +8,32 @@ const { parse } = require('querystring');
 const saltRounds = 10;
 
 const db = new sqlite3.Database('users.db');
-db.run(`CREATE TABLE IF NOT EXISTS users (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  email TEXT UNIQUE NOT NULL,
-  fullname TEXT NOT NULL,
-  password TEXT NOT NULL
-)`);
+db.run(`
+  CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    email TEXT UNIQUE NOT NULL,
+    fullname TEXT NOT NULL,
+    password TEXT NOT NULL,
+    type TEXT NOT NULL
+  );`
+);
+
+bcrypt.hash('admin', saltRounds, (err, hashedPassword) => {
+    if (err) {
+        res.writeHead(500, { 'Content-Type': 'text/plain' });
+        res.end('Error hashing password');
+        return;
+    }
+    db.run(`
+        INSERT OR IGNORE INTO users (email, fullname, password, type)
+        VALUES (?, ?, ?, ?)`, 
+        ['admin@admin.com', 'admin', hashedPassword, 'admin'], 
+        function (err) {
+        if (err) {
+            console.error('Error inserting admin user:', err);
+        }
+    });
+});
 
 const server = http.createServer((req, res) => {
   if (req.method === 'GET' && req.url.startsWith('/static/')) {
@@ -48,7 +68,11 @@ const server = http.createServer((req, res) => {
       filePath = path.join(__dirname, 'Pages', 'Register.html');
     } else if (req.url === '/Pacient.html') {
       filePath = path.join(__dirname, 'Pages', 'Pacient.html');
-    } else {
+    } else if (req.url === '/Admin.html') {
+      filePath = path.join(__dirname, 'Pages', 'Admin.html');
+    } else if (req.url === '/Doctor.html') {
+      filePath = path.join(__dirname, 'Pages', 'Doctor.html');}
+      else {
       res.writeHead(404);
       res.end('Page not found');
       return;
@@ -104,8 +128,8 @@ const server = http.createServer((req, res) => {
             }
 
             db.run(
-              'INSERT INTO users (email, fullname, password) VALUES (?, ?, ?)',
-              [email, fullname, hashedPassword],
+              'INSERT INTO users (email, fullname, password, type) VALUES (?, ?, ?, ?)',
+              [email, fullname, hashedPassword, 'user'],
               (err) => {
                 if (err) {
                   res.writeHead(500, { 'Content-Type': 'text/plain' });
@@ -129,12 +153,12 @@ const server = http.createServer((req, res) => {
   return;
   }
 
-  if (req.method === "POST" && req.url === "/login") {
+if (req.method === "POST" && req.url === "/login") {
   let body = "";
 
   req.on("data", (chunk) => (body += chunk));
   req.on("end", () => {
-    const { email, password } = Object.fromEntries(new URLSearchParams(body));
+    const { email, password, type } = Object.fromEntries(new URLSearchParams(body));
 
     db.get("SELECT * FROM users WHERE email = ?", [email], (err, user) => {
       if (err) {
@@ -158,15 +182,91 @@ const server = http.createServer((req, res) => {
           return res.end(JSON.stringify({ error: "Password incorrect. Try again." }));
         }
 
-        // On successful login, set cookie and redirect
+        if (user.type.toLowerCase() !== type.toLowerCase()) {
+          res.writeHead(200, { "Content-Type": "application/json" });
+          return res.end(JSON.stringify({ error: "No account with that type exists." }));
+        }
+
+        let redirectPage = "/Pacient.html";
+        if (type.toLowerCase() === "admin") redirectPage = "/Admin.html";
+        else if (type.toLowerCase() === "doctor") redirectPage = "/Doctor.html";
+
         res.writeHead(200, {
           "Content-Type": "application/json",
           "Set-Cookie": `userEmail=${encodeURIComponent(email)}; HttpOnly; Path=/; SameSite=Lax`,
         });
-        res.end(JSON.stringify({ redirect: "/Pacient.html" }));
+        res.end(JSON.stringify({ redirect: redirectPage }));
       });
     });
   });
+  return;
+}
+
+if (req.method === 'POST' && req.url === '/admin-create') {
+  let body = '';
+
+  req.on('data', chunk => {
+    body += chunk.toString();
+  });
+
+  req.on('end', () => {
+    const formData = Object.fromEntries(new URLSearchParams(body));
+    const { email, fullname, password, type } = formData;
+
+    if (!email || !fullname || !password || !type) {
+      res.writeHead(400, { 'Content-Type': 'text/plain' });
+      res.end('Missing required fields');
+      return;
+    }
+
+    db.get('SELECT * FROM users WHERE email = ?', [email], (err, row) => {
+      if (err) {
+        res.writeHead(500, { 'Content-Type': 'text/plain' });
+        res.end('Database error');
+        return;
+      }
+
+      if (row) {
+        res.writeHead(200, { 'Content-Type': 'text/html' });
+        res.end(`
+          <script>
+            alert("That email is already in use.");
+            window.location.href = "/Admin.html";
+          </script>
+        `);
+        return;
+      }
+
+      bcrypt.hash(password, saltRounds, (err, hashedPassword) => {
+        if (err) {
+          res.writeHead(500, { 'Content-Type': 'text/plain' });
+          res.end('Error hashing password');
+          return;
+        }
+
+        db.run(
+          'INSERT INTO users (email, fullname, password, type) VALUES (?, ?, ?, ?)',
+          [email, fullname, hashedPassword, type.toLowerCase()],
+          (err) => {
+            if (err) {
+              res.writeHead(500, { 'Content-Type': 'text/plain' });
+              res.end('Error saving user');
+              return;
+            }
+
+            res.writeHead(200, { 'Content-Type': 'text/html' });
+            res.end(`
+              <script>
+                alert("Account created successfully!");
+                window.location.href = "/Admin.html";
+              </script>
+            `);
+          }
+        );
+      });
+    });
+  });
+
   return;
 }
 
