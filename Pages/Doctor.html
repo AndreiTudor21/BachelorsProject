@@ -9,31 +9,34 @@
     <title>Pacient Page</title>
 </head>
 <body>
-    <div class="container-fluid">
+  <div class="container-fluid">
     <div class="row justify-content-center">
       <div class="col-10" id="main_canvas">
         <ul class="nav navbar">
-            <div class="sorting_bar" id="sorting_bar_box">
-              <label class="sorting_bar">Sort by:</label>
-              <div class="form-check form-check-inline sorting_bar">
-                <input class="form-check-input" type="radio" name="groupA" id="radio1" value="option1" checked>
-                <label class="form-check-label sorting_bar" for="radio1">Ascending</label>
-              </div>
-              <div class="form-check form-check-inline sorting_bar">
-                <input class="form-check-input" type="radio" name="groupA" id="radio2" value="option2">
-                <label class="form-check-label sorting_bar" for="radio2">Descending</label>
-              </div>
-
-              <div class="form-check form-check-inline sorting_bar">
-                <input class="form-check-input" type="radio" name="groupB" id="radio3" value="option3" checked>
-                <label class="form-check-label sorting_bar" for="radio3">Date</label>
-              </div>
-              <div class="form-check form-check-inline sorting_bar">
-                <input class="form-check-input" type="radio" name="groupB" id="radio4" value="option4">
-                <label class="form-check-label sorting_bar" for="radio4">Specialization</label>
-              </div>
+          <button id="calendar_button"> 
+            <img src="static\calendar.png" alt="calendar" width="40" height="40" />
+          </button>
+          <div class="sorting_bar" id="sorting_bar_box">  
+            <label class="sorting_bar">Sort by:</label>
+            <div class="form-check form-check-inline sorting_bar">
+              <input class="form-check-input" type="radio" name="groupA" id="radio1" value="option1" checked>
+              <label class="form-check-label sorting_bar" for="radio1">Ascending</label>
             </div>
-            <button type="button" class="btn btn-dark" id="Log_Out_Button" onclick="window.location.href='./LogIn.html'">Log Out</button>
+            <div class="form-check form-check-inline sorting_bar">
+              <input class="form-check-input" type="radio" name="groupA" id="radio2" value="option2">
+              <label class="form-check-label sorting_bar" for="radio2">Descending</label>
+            </div>
+
+            <div class="form-check form-check-inline sorting_bar">
+              <input class="form-check-input" type="radio" name="groupB" id="radio3" value="option3" checked>
+              <label class="form-check-label sorting_bar" for="radio3">Date</label>
+            </div>
+            <div class="form-check form-check-inline sorting_bar">
+              <input class="form-check-input" type="radio" name="groupB" id="radio4" value="option4">
+              <label class="form-check-label sorting_bar" for="radio4">Specialization</label>
+            </div>
+          </div>
+          <button type="button" class="btn btn-dark" id="Log_Out_Button" onclick="window.location.href='./LogIn.html'">Log Out</button>
         </ul>
       </div>
     </div>

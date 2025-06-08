@@ -49,6 +49,15 @@
     align-self: self-start;
 }
 
+#calendar_button{
+  background-color: #8AC0CC;
+  border: none;
+  padding: 1rem;
+  margin-left: 3rem;
+  align-self: self-end; 
+  cursor: pointer;
+}
+
 .sorting_bar{
   background-color: #63A8B7;
   font-size: 1.5rem;
