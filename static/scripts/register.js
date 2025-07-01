@@ -1,6 +1,7 @@
 window.onload = function () {
     const email = document.getElementById("InputEmail");
-    const name = document.getElementById("InputName");
+    const surname = document.getElementById("InputSurname");
+    const last_name = document.getElementById("InputLast_Name");
     const password1 = document.getElementById("InputPassword1");
     const password2 = document.getElementById("InputPassword2");
     const form = document.getElementById("loginform");
@@ -31,16 +32,20 @@ window.onload = function () {
     clear1.addEventListener("click", function(){
         email.value = "";
     });
-    const clear2=document.getElementById("clearInputFullname");
+    const clear2=document.getElementById("clearInputSurname");
     clear2.addEventListener("click", function(){
-        name.value = "";
+        surname.value = "";
     });
-    const clear3=document.getElementById("clearInputPassword1");
+    const clear3=document.getElementById("clearInputLast_Name");
     clear3.addEventListener("click", function(){
+        last_name.value = "";
+    });
+    const clear4=document.getElementById("clearInputPassword1");
+    clear4.addEventListener("click", function(){
         password1.value = "";
     });
-    const clear4=document.getElementById("clearInputPassword2");
-    clear4.addEventListener("click", function(){
+    const clear5=document.getElementById("clearInputPassword2");
+    clear5.addEventListener("click", function(){
         password2.value = "";
     });
 };

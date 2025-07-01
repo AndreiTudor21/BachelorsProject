@@ -11,7 +11,8 @@
     <title>Admin Page</title>
 </head>
 <body>
-    <div class="d-flex justify-content-center align-items-center vh-100 vw-100">
+    <div class="d-flex flex-column justify-content-center align-items-center vh-100 w-100">
+        <h1 class="mb-4 text-center fw-bold">For Admin use only</h1>
         <form action = "/admin-create" method = "POST" id="loginform">
             <div class="input-group">
                 <input type="email" name="email" class="form-control" id="InputEmail" aria-describedby="emailHelp" placeholder="Enter email" required>
@@ -20,8 +21,14 @@
                 </button>
             </div>
             <div class="input-group">
-            <input type="text" name="fullname" class="form-control" id="InputName" placeholder="Full Name" required>
-                <button class="btn btn-outline-secondary" type="button" id="clearInputFullname">
+            <input type="text" name="surname" class="form-control" id="InputSurname" placeholder="Surname" required>
+                <button class="btn btn-outline-secondary" type="button" id="clearInputSurname">
+                    <img src="static/small_x.png" alt="small_x" width="24" height="24" />
+                </button>
+            </div>
+            <div class="input-group">
+            <input type="text" name="last_name" class="form-control" id="InputLast_Name" placeholder="Last Name" required>
+                <button class="btn btn-outline-secondary" type="button" id="clearInputLast_Name">
                     <img src="static/small_x.png" alt="small_x" width="24" height="24" />
                 </button>
             </div>
@@ -40,7 +47,7 @@
             <div class="form-group">
                 <label for="InputType">Account type:</label>
                 <select class="form-control" id="InputType" name="type" required>
-                    <option selected>User</option>
+                    <option selected>Patient</option>
                     <option>Doctor</option>
                 </select>
             </div>

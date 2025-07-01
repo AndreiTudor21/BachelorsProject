@@ -47,5 +47,4 @@ window.onload = function(){
         console.error(error);
         }
     });
-    console.log("merge");
 };

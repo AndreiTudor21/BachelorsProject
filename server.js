@@ -31,15 +31,14 @@ const server = http.createServer((req, res) => {
     });
     return;
   }
-
   if (req.method === 'GET') {
     let filePath = '';
     if (req.url === '/' || req.url === '/LogIn.html') {
       filePath = path.join(__dirname, 'Pages', 'LogIn.html');
     } else if (req.url === '/Register.html') {
       filePath = path.join(__dirname, 'Pages', 'Register.html');
-    } else if (req.url === '/Pacient.html') {
-      filePath = path.join(__dirname, 'Pages', 'Pacient.html');
+    } else if (req.url === '/Patient.html') {
+      filePath = path.join(__dirname, 'Pages', 'Patient.html');
     } else if (req.url === '/Admin.html') {
       filePath = path.join(__dirname, 'Pages', 'Admin.html');
     } else if (req.url === '/Doctor.html') {
@@ -61,120 +60,7 @@ const server = http.createServer((req, res) => {
     });
     return;
   }
-
   if (req.method === 'POST' && req.url === '/submit') {
-    let body = '';
-
-    req.on('data', chunk => {
-      body += chunk.toString();
-    });
-
-    req.on('end', () => {
-      const formData = Object.fromEntries(new URLSearchParams(body));
-      const { email, fullname, password } = formData;
-
-      if (!email || !fullname || !password) {
-        res.writeHead(400, { 'Content-Type': 'text/plain' });
-        res.end('Missing required fields');
-        return;
-      }
-
-      db.get('SELECT * FROM users WHERE email = ?', [email], (err, row) => {
-        if (err) {
-          res.writeHead(500, { 'Content-Type': 'text/plain' });
-          res.end('Database error');
-        } else if (row) {
-          res.writeHead(200, { 'Content-Type': 'text/html' });
-          res.end(`
-            <script>
-              alert("An account with this email already exists.");
-              window.location.href = "/Register.html";
-            </script>
-          `);
-        } else {
-          bcrypt.hash(password, saltRounds, (err, hashedPassword) => {
-            if (err) {
-              res.writeHead(500, { 'Content-Type': 'text/plain' });
-              res.end('Error hashing password');
-              return;
-            }
-
-            db.run(
-              'INSERT INTO users (email, fullname, password, type) VALUES (?, ?, ?, ?)',
-              [email, fullname, hashedPassword, 'user'],
-              (err) => {
-                if (err) {
-                  res.writeHead(500, { 'Content-Type': 'text/plain' });
-                  res.end('Database insert error');
-                } else {
-                  res.writeHead(200, { 'Content-Type': 'text/html' });
-                  res.end(`
-                    <script>
-                      alert("Account created successfully.");
-                      window.location.href = "/LogIn.html";
-                    </script>
-                  `);
-                }
-              }
-            );
-          });
-        }
-      });
-    });
-
-  return;
-  }
-
-if (req.method === "POST" && req.url === "/login") {
-  let body = "";
-
-  req.on("data", (chunk) => (body += chunk));
-  req.on("end", () => {
-    const { email, password, type} = Object.fromEntries(new URLSearchParams(body));
-
-    db.get("SELECT * FROM users WHERE email = ?", [email], (err, user) => {
-      if (err) {
-        res.writeHead(500, { "Content-Type": "application/json" });
-        return res.end(JSON.stringify({ error: "Database error" }));
-      }
-
-      if (!user) {
-        res.writeHead(200, { "Content-Type": "application/json" });
-        return res.end(JSON.stringify({ error: "No account found for that e-mail." }));
-      }
-
-      bcrypt.compare(password, user.password, (err, ok) => {
-        if (err) {
-          res.writeHead(500, { "Content-Type": "application/json" });
-          return res.end(JSON.stringify({ error: "Password check error" }));
-        }
-
-        if (!ok) {
-          res.writeHead(200, { "Content-Type": "application/json" });
-          return res.end(JSON.stringify({ error: "Password incorrect. Try again." }));
-        }
-
-        if (user.type.toLowerCase() !== type.toLowerCase()) {
-          res.writeHead(200, { "Content-Type": "application/json" });
-          return res.end(JSON.stringify({ error: "No account with that type exists." }));
-        }
-
-        let redirectPage = "/Pacient.html";
-        if (type.toLowerCase() === "admin") redirectPage = "/Admin.html";
-        else if (type.toLowerCase() === "doctor") redirectPage = "/Doctor.html";
-
-        res.writeHead(200, {
-          "Content-Type": "application/json",
-          "Set-Cookie": `userEmail=${encodeURIComponent(email)}; HttpOnly; Path=/; SameSite=Lax`,
-        });
-        res.end(JSON.stringify({ redirect: redirectPage }));
-      });
-    });
-  });
-  return;
-}
-
-if (req.method === 'POST' && req.url === '/admin-create') {
   let body = '';
 
   req.on('data', chunk => {
@@ -183,82 +69,269 @@ if (req.method === 'POST' && req.url === '/admin-create') {
 
   req.on('end', () => {
     const formData = Object.fromEntries(new URLSearchParams(body));
-    const { email, fullname, password, type, specialization } = formData;
-    console.log('Inserting user:', { email, fullname, password, type, specialization });
+    const { email, surname, last_name, password } = formData;
 
-    db.get('SELECT * FROM users WHERE email = ?', [email], (err, row) => {
+    if (!email || !surname || !last_name || !password) {
+      res.writeHead(400, { 'Content-Type': 'text/plain' });
+      res.end('Missing required fields');
+      return;
+    }
+
+    db.get('SELECT * FROM Patients WHERE email = ?', [email], (err, patient) => {
       if (err) {
         res.writeHead(500, { 'Content-Type': 'text/plain' });
-        res.end('Database error');
-        return;
+        return res.end('Database error');
       }
 
-      if (row) {
+      if (patient) {
         res.writeHead(200, { 'Content-Type': 'text/html' });
-        res.end(`
+        return res.end(`
           <script>
-            alert("That email is already in use.");
-            window.location.href = "/Admin.html";
+            alert("An account with this email already exists.");
+            window.location.href = "/Register.html";
           </script>
         `);
-        return;
       }
 
-      bcrypt.hash(password, saltRounds, (err, hashedPassword) => {
+      db.get('SELECT * FROM Doctors WHERE email = ?', [email], (err, doctor) => {
         if (err) {
           res.writeHead(500, { 'Content-Type': 'text/plain' });
-          res.end('Error hashing password');
-          return;
+          return res.end('Database error');
         }
 
-        if (type.toLowerCase() === 'doctor') {
+        if (doctor) {
+          res.writeHead(200, { 'Content-Type': 'text/html' });
+          return res.end(`
+            <script>
+              alert("An account with this email already exists.");
+              window.location.href = "/Register.html";
+            </script>
+          `);
+        }
+
+        bcrypt.hash(password, saltRounds, (err, hashedPassword) => {
+          if (err) {
+            res.writeHead(500, { 'Content-Type': 'text/plain' });
+            return res.end('Error hashing password');
+          }
+
           db.run(
-            'INSERT INTO users (email, fullname, password, type, specialization) VALUES (?, ?, ?, ?, ?)',
-            [email, fullname, hashedPassword, type.toLowerCase(), specialization],
+            'INSERT INTO Patients (email, surname, last_name, password) VALUES (?, ?, ?, ?)',
+            [email, surname, last_name, hashedPassword],
             (err) => {
               if (err) {
-                console.error('DB Insert error:', err);  // <-- LOG IT!
                 res.writeHead(500, { 'Content-Type': 'text/plain' });
-                res.end('Error saving user');
-                return;
+                return res.end('Database insert error');
               }
 
               res.writeHead(200, { 'Content-Type': 'text/html' });
               res.end(`
                 <script>
-                  alert("Account created successfully!");
-                  window.location.href = "/Admin.html";
+                  alert("Account created successfully.");
+                  window.location.href = "/LogIn.html";
                 </script>
               `);
             }
           );
-        } else {
-          db.run(
-            'INSERT INTO users (email, fullname, password, type) VALUES (?, ?, ?, ?)',
-            [email, fullname, hashedPassword, type.toLowerCase()],
-            (err) => {
-              if (err) {
-                res.writeHead(500, { 'Content-Type': 'text/plain' });
-                res.end('Error saving user');
-                return;
-              }
-
-              res.writeHead(200, { 'Content-Type': 'text/html' });
-              res.end(`
-                <script>
-                  alert("Account created successfully!");
-                  window.location.href = "/Admin.html";
-                </script>
-              `);
-            }
-          );
-        }
+        });
       });
     });
   });
 
   return;
-}
+  }
+  if (req.method === "POST" && req.url === "/login") {
+    let body = "";
+
+    req.on("data", (chunk) => (body += chunk));
+    req.on("end", () => {
+      const { email, password } = Object.fromEntries(new URLSearchParams(body));
+
+      // for admin
+      if (email === "admin@admin.com") {
+        db.get("SELECT * FROM Patients WHERE email = ?", [email], (err, user) => {
+          if (err) {
+            res.writeHead(500, { "Content-Type": "application/json" });
+            return res.end(JSON.stringify({ error: "Database error" }));
+          }
+
+          if (!user) {
+            res.writeHead(200, { "Content-Type": "application/json" });
+            return res.end(JSON.stringify({ error: "No account found for those credentials." }));
+          }
+
+          bcrypt.compare(password, user.password, (err, ok) => {
+            if (!ok || err) {
+              res.writeHead(200, { "Content-Type": "application/json" });
+              return res.end(JSON.stringify({ error: "No account found for those credentials." }));
+            }
+
+            // Admin success
+            res.writeHead(200, {
+              "Content-Type": "application/json",
+              "Set-Cookie": `userEmail=${encodeURIComponent(email)}; HttpOnly; Path=/; SameSite=Lax`,
+            });
+            return res.end(JSON.stringify({ redirect: "/Admin.html" }));
+          });
+        });
+        return;
+      }
+
+      // First check Patients
+      db.get("SELECT * FROM Patients WHERE email = ?", [email], (err, patient) => {
+        if (err) {
+          res.writeHead(500, { "Content-Type": "application/json" });
+          return res.end(JSON.stringify({ error: "Database error" }));
+        }
+
+        if (patient) {
+          return bcrypt.compare(password, patient.password, (err, ok) => {
+            if (!ok || err) {
+              res.writeHead(200, { "Content-Type": "application/json" });
+              return res.end(JSON.stringify({ error: "No account found for those credentials." }));
+            }
+
+            // Success as patient
+            res.writeHead(200, {
+              "Content-Type": "application/json",
+              "Set-Cookie": `userEmail=${encodeURIComponent(email)}; HttpOnly; Path=/; SameSite=Lax`,
+            });
+            return res.end(JSON.stringify({ redirect: "/Patient.html" }));
+          });
+        }
+
+        // If not patient, check Doctors
+        db.get("SELECT * FROM Doctors WHERE email = ?", [email], (err, doctor) => {
+          if (err) {
+            res.writeHead(500, { "Content-Type": "application/json" });
+            return res.end(JSON.stringify({ error: "Database error" }));
+          }
+
+          if (!doctor) {
+            res.writeHead(200, { "Content-Type": "application/json" });
+            return res.end(JSON.stringify({ error: "No account found for those credentials." }));
+          }
+
+          return bcrypt.compare(password, doctor.password, (err, ok) => {
+            if (!ok || err) {
+              res.writeHead(200, { "Content-Type": "application/json" });
+              return res.end(JSON.stringify({ error: "No account found for those credentials." }));
+            }
+
+            // Success as doctor
+            res.writeHead(200, {
+              "Content-Type": "application/json",
+              "Set-Cookie": `userEmail=${encodeURIComponent(email)}; HttpOnly; Path=/; SameSite=Lax`,
+            });
+            return res.end(JSON.stringify({ redirect: "/Doctor.html" }));
+          });
+        });
+      });
+    });
+    return;
+  }
+  if (req.method === 'POST' && req.url === '/admin-create') {
+    let body = '';
+
+    req.on('data', chunk => {
+      body += chunk.toString();
+    });
+
+    req.on('end', () => {
+      const formData = Object.fromEntries(new URLSearchParams(body));
+      const { email, surname, last_name, password, type, specialization } = formData;
+
+      db.get('SELECT * FROM Patients WHERE email = ?', [email], (err, patient) => {
+        if (err) {
+          console.error('DB Lookup error (Patients):', err);
+          res.writeHead(500, { 'Content-Type': 'text/plain' });
+          return res.end('Database error');
+        }
+
+        if (patient) {
+          res.writeHead(400, { 'Content-Type': 'text/html' });
+          return res.end(`
+            <script>
+              alert("An account with this email already exists (in Patients)!");
+              window.location.href = "/Admin.html";
+            </script>
+          `);
+        }
+
+        db.get('SELECT * FROM Doctors WHERE email = ?', [email], (err, doctor) => {
+          if (err) {
+            console.error('DB Lookup error (Doctors):', err);
+            res.writeHead(500, { 'Content-Type': 'text/plain' });
+            return res.end('Database error');
+          }
+
+          if (doctor) {
+            res.writeHead(400, { 'Content-Type': 'text/html' });
+            return res.end(`
+              <script>
+                alert("An account with this email already exists (in Doctors)!");
+                window.location.href = "/Admin.html";
+              </script>
+            `);
+          }
+
+          bcrypt.hash(password, saltRounds, (err, hashedPassword) => {
+            if (err) {
+              console.error('Password hashing error:', err);
+              res.writeHead(500, { 'Content-Type': 'text/plain' });
+              return res.end('Error hashing password');
+            }
+
+            if (type === 'Doctor') {
+              db.run(
+                'INSERT INTO Doctors (email, surname, last_name, password, specialization) VALUES (?, ?, ?, ?, ?)',
+                [email, surname, last_name, hashedPassword, specialization],
+                (err) => {
+                  if (err) {
+                    console.error('DB Insert error (Doctor):', err);
+                    res.writeHead(500, { 'Content-Type': 'text/plain' });
+                    return res.end('Error saving doctor');
+                  }
+
+                  res.writeHead(200, { 'Content-Type': 'text/html' });
+                  res.end(`
+                    <script>
+                      alert("Doctor account created successfully!");
+                      window.location.href = "/Admin.html";
+                    </script>
+                  `);
+                }
+              );
+            } else {
+              db.run(
+                'INSERT INTO Patients (email, surname, last_name, password) VALUES (?, ?, ?, ?)',
+                [email, surname, last_name, hashedPassword],
+                (err) => {
+                  if (err) {
+                    console.error('DB Insert error (Patient):', err);
+                    res.writeHead(500, { 'Content-Type': 'text/plain' });
+                    return res.end('Error saving patient');
+                  }
+
+                  res.writeHead(200, { 'Content-Type': 'text/html' });
+                  res.end(`
+                    <script>
+                      alert("Patient account created successfully!");
+                      window.location.href = "/Admin.html";
+                    </script>
+                  `);
+                }
+              );
+            }
+          });
+        });
+      });
+    });
+
+    return;
+  }
+
+
 
 
 

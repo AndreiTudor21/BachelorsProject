@@ -1,4 +1,4 @@
-*{
+* {
     background-color: #6CEEE7;
 }
 
@@ -24,31 +24,6 @@
   cursor: pointer;
 }
 
-#main_canvas{
-  height: 100vh;
-  background-color: #8AC0CC;
-  box-shadow: 0 0 20px rgb(255, 255, 255);
-}
-.navbar{
-    background-color: #8AC0CC;
-    min-height: 5%;
-    width: 100%;
-    align-items: end;
-}
-
-#Scedule_Button{
-    background-color: #1ADCD3;
-    min-width: 10%;
-    font-size: 2rem;
-    border-radius: 0.75rem;
-    font-weight: bold;
-    padding: 1rem;
-    margin-left: 3rem;
-    border-color: #000;
-    cursor:pointer;
-    align-self: self-start;
-}
-
 #calendar_button{
   background-color: #8AC0CC;
   border: none;
@@ -58,24 +33,48 @@
   cursor: pointer;
 }
 
-.sorting_bar{
-  background-color: #63A8B7;
-  font-size: 1.5rem;
+.navbar {
+    background-color: #8AC0CC !important;
+    width: 100%;
+    flex-wrap: wrap;
+}
+
+#Scedule_Button,
+#Log_Out_Button {
+  background-color: #1ADCD3;
+  font-size: 1.25rem;
+  border-radius: 0.75rem;
+  font-weight: bold;
+  padding: 0.75rem 1.25rem;
+  border: 2px solid #000;
+  cursor: pointer;
+  margin: 0.5rem;
+}
+
+#Log_Out_Button {
+  background-color: #343a40;
   color: white;
 }
 
-#sorting_bar_box{
-  padding: 1rem;
+#main_canvas {
+  height: 100vh;
+  background-color: #8AC0CC;
+  box-shadow: 0 0 20px white;
+}
+
+#sorting_bar_wrapper {
+  background-color: #63A8B7;
+  padding: 0.5rem 1rem;
   border-radius: 0.75rem;
 }
 
-#Log_Out_Button{
-    min-width: 10%;
-    font-size: 2rem;
-    border-radius: 0.75rem;
-    font-weight: bold;
-    padding: 1rem;
-    margin-left: 3rem;
-    border-color: #000;
-    cursor:pointer;
+#sorting_bar_wrapper > * > *{
+  background-color: #63A8B7;
+}
+
+.sorting_label {
+  background-color: #63A8B7;
+  font-size: 1rem;
+  color: white;
+  font-weight: bold;
 }
