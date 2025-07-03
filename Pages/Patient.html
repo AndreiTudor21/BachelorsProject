@@ -14,14 +14,9 @@
       <div class="col-12 col-lg-10" id="main_canvas">
         <nav class="navbar px-3 py-3">
           <div class="container-fluid d-flex flex-column flex-md-row justify-content-between align-items-center gap-3" style="background-color: #8AC0CC">
-
-            <!-- Schedule Button -->
             <button id="Scedule_Button" data-bs-toggle="modal" data-bs-target="#calendarModal" class="btn">Schedule A Consultation</button>
-
-            <!-- Sorting Dropdowns -->
             <div id="sorting_bar_wrapper" class="d-flex flex-column flex-md-row gap-2 align-items-center px-3 py-2 rounded">
               <label class="sorting_label mb-1 mb-md-0">Sort by:</label>
-
               <select class="form-select" id="sort_order" style="min-width: 150px;">
                 <option value="asc">Ascending</option>
                 <option value="desc">Descending</option>
@@ -32,35 +27,28 @@
                 <option value="specialization">Specialization</option>
               </select>
             </div>
-
-            <!-- Log Out Button -->
             <button type="button" class="btn btn-dark" id="Log_Out_Button" onclick="window.location.href='./LogIn.html'">Log Out</button>
           </div>
         </nav>
+        <!--
         <div class="container mt-4">
           <div class="row border border-black rounded overflow-hidden" style="background-color: #63A8B7;">
-            
-            <!-- Left: Date and Type -->
             <div class="col-12 col-md-4 p-3 border-end border-black" style="background-color: #63A8B7;">
               <p class="mb-1 text-white" style="background-color: #63A8B7;"><strong style="background-color: #63A8B7;">May 28, 2025</strong></p>
               <p class="text-white" style="background-color: #63A8B7;">General Consultation</p>
             </div>
-
-            <!-- Middle: Time, Location, Doctor -->
             <div class="col-12 col-md-4 p-3 border-end border-black" style="background-color: #63A8B7;">
               <p class="mb-1 text-white" style="background-color: #63A8B7;"><strong style="background-color: #63A8B7;">Time:</strong> 10:30 AM</p>
               <p class="mb-1 text-white" style="background-color: #63A8B7;"><strong style="background-color: #63A8B7;">Location:</strong> Cabinet 5</p>
               <p class="text-white" style="background-color: #63A8B7;"><strong style="background-color: #63A8B7;">Doctor:</strong> Dr. Selena Reyes</p>
             </div>
-
-            <!-- Right: Button -->
             <div class="col-12 col-md-4 p-3 text-end text-md-center text-lg-end" style="background-color: #63A8B7;">
               <button class="btn btn-light border border-black">See Consult Notes</button>
             </div>
 
           </div>
         </div>
-
+        -->
       </div>
     </div>
   </div>
@@ -73,7 +61,9 @@
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body">
-        <form id="scheduleForm">
+        <div id="alertContainer" style="position: fixed; top: 10px; right: 10px; z-index: 1055; min-width: 300px;"></div>
+        <div id="availableSlotsContainer"></div>
+        <form id="appointmentForm" action="/appointment" method="POST">
           <div class="mb-3">
             <label for="specializationSelect" class="form-label">Specialization</label>
             <select class="form-control" id="InputSpecialization" name="specialization" required>
@@ -87,21 +77,108 @@
           </div>
           <div class="mb-3">
             <label for="dateInput" class="form-label">Date</label>
-            <input type="date" class="form-control" id="dateInput" required />
+            <input type="date" class="form-control" id="dateInput" name="date" required />
           </div>
           <div class="mb-3">
-            <label for="timeInput" class="form-label">Time</label>
-            <input type="time" class="form-control" id="timeInput" required />
+            <label for="timeInput" class="form-label">Start Time</label>
+            <input type="time" class="form-control" id="timeInput" name="time" required />
           </div>
         </form>
       </div>
       <div class="modal-footer">
-        <button type="submit" form="scheduleForm" class="btn btn-primary">Save</button>
+        <button type="submit" form="appointmentForm" class="btn btn-primary">Save</button>
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
       </div>
     </div>
   </div>
 </div>
+
+<script>
+  // Helper to show alerts in the alertContainer
+  function showAlert(type, message) {
+    const alertContainer = document.getElementById('alertContainer');
+    alertContainer.innerHTML = `
+      <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+      </div>
+    `;
+
+    setTimeout(() => {
+      const alert = alertContainer.querySelector('.alert');
+      if (alert) {
+        const bsAlert = bootstrap.Alert.getOrCreateInstance(alert);
+        bsAlert.close();
+      }
+    }, 3000);
+  }
+
+  // On page load, auto-dismiss any alerts after 3 seconds
+  document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(() => {
+      document.querySelectorAll('.alert').forEach(alertEl => {
+        const bsAlert = bootstrap.Alert.getOrCreateInstance(alertEl);
+        bsAlert.close();
+      });
+    }, 3000);
+  });
+
+  // Handle appointment form submit
+  document.getElementById('appointmentForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+
+    const specialization = document.getElementById('InputSpecialization').value;
+    const date = document.getElementById('dateInput').value;
+    const time = document.getElementById('timeInput').value;
+
+    fetch('/appointment', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ specialization, date, time })
+    })
+    .then(res => res.text())
+    .then(html => {
+      const container = document.getElementById('availableSlotsContainer');
+      container.innerHTML = html;
+
+      // Attach click listeners to new create-appointment buttons
+      container.querySelectorAll('.create-appointment-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const scheduleId = btn.getAttribute('data-schedule-id');
+
+          fetch('/create-appointment', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({ schedule_id: scheduleId })
+          })
+          .then(res => res.json())
+          .then(data => {
+            if (data.success) {
+              // Clear all appointment cards
+              container.innerHTML = '';
+
+              // Show success alert
+              showAlert('success', 'Appointment booked successfully!');
+
+              // Close modal after 2 seconds unless user clicks inside it
+              const modalEl = document.getElementById('calendarModal');
+              const modal = bootstrap.Modal.getInstance(modalEl);
+              let timer = setTimeout(() => modal.hide(), 2000);
+
+              modalEl.addEventListener('click', () => clearTimeout(timer), { once: true });
+
+            } else {
+              // Show error alert
+              showAlert('danger', 'Failed to create appointment: ' + data.error);
+            }
+          });
+        });
+      });
+    });
+  });
+</script>
+
+
 
 </body>
 </html>

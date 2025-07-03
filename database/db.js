@@ -45,13 +45,13 @@ db.run(`
   )
 `);
 
+// MOCK DATA ----------
 
 bcrypt.hash('admin', saltRounds, (err, hashedPassword) => {
   if (err) {
     console.error('Error hashing admin password:', err);
     return;
   }
-
   db.run(
     `INSERT OR IGNORE INTO Patients (email, surname, last_name, password)
      VALUES (?, ?, ?, ?)`,
@@ -59,9 +59,41 @@ bcrypt.hash('admin', saltRounds, (err, hashedPassword) => {
     (err) => {
       if (err) {
         console.error('Error inserting admin user:', err);
+      } else{
+        console.log(`Inserted admin`);
       }
     }
   );
+});
+
+
+let specializations = ["Cardiology", "Neurology", "Pediatrics", "Dermatology", "Psychiatry", "Orthopedics"];
+
+specializations.forEach(spec => {
+  const email = spec.toLowerCase() + "@doctor.com";
+  const surname = spec + "Doc";
+  const lastName = "Demo";
+
+    
+  bcrypt.hash('doctor123', saltRounds, (err, hashedDocPass) => {
+    if (err) {
+      console.error(`Error hashing password for ${spec} doctor:`, err);
+      return;
+    }
+
+    db.run(
+      `INSERT OR IGNORE INTO Doctors (email, surname, last_name, specialization, password)
+       VALUES (?, ?, ?, ?, ?)`,
+      [email, surname, lastName, spec, hashedDocPass],
+      (err) => {
+        if (err) {
+          console.error(`Error inserting ${spec} doctor:`, err);
+        } else {
+          console.log(`Inserted doctor for specialization: ${spec}`);
+        }
+      }
+    );
+  });
 });
 
 module.exports = db;
