@@ -7,6 +7,32 @@ const { parse } = require('querystring');
 const saltRounds = 10;
 const db = require('./database/db');
 
+
+  function parseCookies(req) {
+  const list = {};
+  const cookieHeader = req.headers?.cookie;
+  if (!cookieHeader) return list;
+
+  cookieHeader.split(';').forEach(cookie => {
+    const [name, ...rest] = cookie.trim().split('=');
+    const value = rest.join('=');
+    list[name] = decodeURIComponent(value);
+  });
+
+  return list;
+  }
+  function timeToMinutes(t) {
+  const [h, m] = t.split(':').map(Number);
+  return h * 60 + m;
+  }
+  function minutesToTime(m) {
+  const h = Math.floor(m / 60);
+  const min = m % 60;
+  return `${h.toString().padStart(2, '0')}:${min.toString().padStart(2, '0')}`;
+  }
+
+
+
 const server = http.createServer((req, res) => {
   if (req.method === 'GET' && req.url.startsWith('/static/')) {
     const filePath = path.join(__dirname, req.url);
@@ -30,6 +56,109 @@ const server = http.createServer((req, res) => {
       res.end(content);
     });
     return;
+  }
+  if (req.method === 'GET' && req.url === '/patient-appointments') {
+  const cookies = parseCookies(req);
+  const patientEmail = cookies.userEmail;
+
+  if (!patientEmail) {
+    res.writeHead(401, { 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify({ error: 'User not logged in' }));
+  }
+
+  db.get('SELECT id FROM Patients WHERE email = ?', [patientEmail], (err, patientRow) => {
+    if (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ error: 'Database error while looking up patient' }));
+    }
+
+    if (!patientRow) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ error: 'Patient not found' }));
+    }
+
+    const patientId = patientRow.id;
+
+    const query = `
+      SELECT
+        Appointments.id AS appointment_id,
+        Appointments.notes,
+        Appointments.status,
+        Schedule.date,
+        Schedule.start_time,
+        Doctors.surname AS doctor_surname,
+        Doctors.last_name AS doctor_last_name,
+        Doctors.specialization
+      FROM Appointments
+      JOIN Schedule ON Appointments.schedule_id = Schedule.id
+      JOIN Doctors ON Schedule.doctor_id = Doctors.id
+      WHERE Appointments.patient_id = ?
+      ORDER BY Schedule.date DESC, Schedule.start_time ASC
+    `;
+
+    db.all(query, [patientId], (err, rows) => {
+      if (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ error: 'Error fetching appointments' }));
+      }
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(rows));
+    });
+  });
+
+  return;
+  }
+  if (req.method === 'GET' && req.url === '/doctor-appointments') {
+  const cookies = parseCookies(req);
+  const doctorEmail = cookies.userEmail;
+
+  if (!doctorEmail) {
+    res.writeHead(401, { 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify({ error: 'User not logged in' }));
+  }
+
+  db.get('SELECT id, specialization FROM Doctors WHERE email = ?', [doctorEmail], (err, doctorRow) => {
+    if (err || !doctorRow) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ error: 'Doctor not found or DB error' }));
+    }
+
+    const doctorId = doctorRow.id;
+
+    const query = `
+      SELECT
+        Appointments.id AS appointment_id,
+        Appointments.notes,
+        Schedule.date,
+        Schedule.start_time,
+        Patients.surname || ' ' || Patients.last_name AS patient_name
+      FROM Appointments
+      JOIN Schedule ON Appointments.schedule_id = Schedule.id
+      JOIN Patients ON Appointments.patient_id = Patients.id
+      WHERE Schedule.doctor_id = ?
+      ORDER BY Schedule.date DESC, Schedule.start_time ASC
+    `;
+
+    db.all(query, [doctorId], (err, rows) => {
+      if (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ error: 'Error fetching doctor appointments' }));
+      }
+
+      const enriched = rows.map(row => ({
+        ...row,
+        specialization: doctorRow.specialization,
+        location: "THE CLINIC",
+        status: row.notes && row.notes.trim() !== "" ? "Honored" : "Not Honored"
+      }));
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(enriched));
+    });
+  });
+
+  return;
   }
   if (req.method === 'GET') {
     let filePath = '';
@@ -71,48 +200,52 @@ const server = http.createServer((req, res) => {
     const formData = Object.fromEntries(new URLSearchParams(body));
     const { email, surname, last_name, password } = formData;
 
-    if (!email || !surname || !last_name || !password) {
-      res.writeHead(400, { 'Content-Type': 'text/plain' });
-      res.end('Missing required fields');
-      return;
-    }
-
     db.get('SELECT * FROM Patients WHERE email = ?', [email], (err, patient) => {
       if (err) {
-        res.writeHead(500, { 'Content-Type': 'text/plain' });
-        return res.end('Database error');
+        res.writeHead(500, { 'Content-Type': 'text/html' });
+        return res.end(`
+          <div class="alert alert-danger" role="alert">
+            Database error occurred.
+          </div>
+        `);
       }
 
       if (patient) {
         res.writeHead(200, { 'Content-Type': 'text/html' });
         return res.end(`
-          <script>
-            alert("An account with this email already exists.");
-            window.location.href = "/Register.html";
-          </script>
+          <div class="alert alert-danger" role="alert">
+            An account with this email already exists.
+          </div>
         `);
       }
 
       db.get('SELECT * FROM Doctors WHERE email = ?', [email], (err, doctor) => {
         if (err) {
-          res.writeHead(500, { 'Content-Type': 'text/plain' });
-          return res.end('Database error');
+          res.writeHead(500, { 'Content-Type': 'text/html' });
+          return res.end(`
+            <div class="alert alert-danger" role="alert">
+              Database error occurred.
+            </div>
+          `);
         }
 
         if (doctor) {
           res.writeHead(200, { 'Content-Type': 'text/html' });
           return res.end(`
-            <script>
-              alert("An account with this email already exists.");
-              window.location.href = "/Register.html";
-            </script>
+            <div class="alert alert-danger" role="alert">
+              An account with this email already exists.
+            </div>
           `);
         }
 
         bcrypt.hash(password, saltRounds, (err, hashedPassword) => {
           if (err) {
-            res.writeHead(500, { 'Content-Type': 'text/plain' });
-            return res.end('Error hashing password');
+            res.writeHead(500, { 'Content-Type': 'text/html' });
+            return res.end(`
+              <div class="alert alert-danger" role="alert">
+                Error hashing password.
+              </div>
+            `);
           }
 
           db.run(
@@ -120,16 +253,19 @@ const server = http.createServer((req, res) => {
             [email, surname, last_name, hashedPassword],
             (err) => {
               if (err) {
-                res.writeHead(500, { 'Content-Type': 'text/plain' });
-                return res.end('Database insert error');
+                res.writeHead(500, { 'Content-Type': 'text/html' });
+                return res.end(`
+                  <div class="alert alert-danger" role="alert">
+                    Failed to create account.
+                  </div>
+                `);
               }
 
               res.writeHead(200, { 'Content-Type': 'text/html' });
               res.end(`
-                <script>
-                  alert("Account created successfully.");
-                  window.location.href = "/LogIn.html";
-                </script>
+                <div class="alert alert-success" role="alert">
+                  Account created successfully! Redirecting to login...
+                </div>
               `);
             }
           );
@@ -147,7 +283,6 @@ const server = http.createServer((req, res) => {
     req.on("end", () => {
       const { email, password } = Object.fromEntries(new URLSearchParams(body));
 
-      // for admin
       if (email === "admin@admin.com") {
         db.get("SELECT * FROM Patients WHERE email = ?", [email], (err, user) => {
           if (err) {
@@ -176,7 +311,6 @@ const server = http.createServer((req, res) => {
         return;
       }
 
-      //Patients
       db.get("SELECT * FROM Patients WHERE email = ?", [email], (err, patient) => {
         if (err) {
           res.writeHead(500, { "Content-Type": "application/json" });
@@ -198,7 +332,6 @@ const server = http.createServer((req, res) => {
           });
         }
 
-        //Doctors
         db.get("SELECT * FROM Doctors WHERE email = ?", [email], (err, doctor) => {
           if (err) {
             res.writeHead(500, { "Content-Type": "application/json" });
@@ -228,104 +361,129 @@ const server = http.createServer((req, res) => {
     return;
   }
   if (req.method === 'POST' && req.url === '/admin-create') {
-    let body = '';
+  let body = '';
 
-    req.on('data', chunk => {
-      body += chunk.toString();
-    });
+  req.on('data', chunk => {
+    body += chunk.toString();
+  });
 
-    req.on('end', () => {
-      const formData = Object.fromEntries(new URLSearchParams(body));
-      const { email, surname, last_name, password, type, specialization } = formData;
+  req.on('end', () => {
+    const formData = Object.fromEntries(new URLSearchParams(body));
+    const { email, surname, last_name, password, type, specialization } = formData;
 
-      db.get('SELECT * FROM Patients WHERE email = ?', [email], (err, patient) => {
+    if (!email || !surname || !last_name || !password || !type || (type === 'Doctor' && !specialization)) {
+      res.writeHead(400, { 'Content-Type': 'text/html' });
+      return res.end(`
+        <div class="alert alert-danger" role="alert">
+          Missing required fields.
+        </div>
+      `);
+    }
+
+    db.get('SELECT * FROM Patients WHERE email = ?', [email], (err, patient) => {
+      if (err) {
+        console.error('DB Lookup error (Patients):', err);
+        res.writeHead(500, { 'Content-Type': 'text/html' });
+        return res.end(`
+          <div class="alert alert-danger" role="alert">
+            Database error during patient lookup.
+          </div>
+        `);
+      }
+
+      if (patient) {
+        res.writeHead(200, { 'Content-Type': 'text/html' });
+        return res.end(`
+          <div class="alert alert-danger" role="alert">
+            An account with this email already exists in Patients.
+          </div>
+        `);
+      }
+
+      db.get('SELECT * FROM Doctors WHERE email = ?', [email], (err, doctor) => {
         if (err) {
-          console.error('DB Lookup error (Patients):', err);
-          res.writeHead(500, { 'Content-Type': 'text/plain' });
-          return res.end('Database error');
-        }
-
-        if (patient) {
-          res.writeHead(400, { 'Content-Type': 'text/html' });
+          console.error('DB Lookup error (Doctors):', err);
+          res.writeHead(500, { 'Content-Type': 'text/html' });
           return res.end(`
-            <script>
-              alert("An account with this email already exists (in Patients)!");
-              window.location.href = "/Admin.html";
-            </script>
+            <div class="alert alert-danger" role="alert">
+              Database error during doctor lookup.
+            </div>
           `);
         }
 
-        db.get('SELECT * FROM Doctors WHERE email = ?', [email], (err, doctor) => {
-          if (err) {
-            console.error('DB Lookup error (Doctors):', err);
-            res.writeHead(500, { 'Content-Type': 'text/plain' });
-            return res.end('Database error');
-          }
+        if (doctor) {
+          res.writeHead(200, { 'Content-Type': 'text/html' });
+          return res.end(`
+            <div class="alert alert-danger" role="alert">
+              An account with this email already exists in Doctors.
+            </div>
+          `);
+        }
 
-          if (doctor) {
-            res.writeHead(400, { 'Content-Type': 'text/html' });
+        bcrypt.hash(password, saltRounds, (err, hashedPassword) => {
+          if (err) {
+            console.error('Password hashing error:', err);
+            res.writeHead(500, { 'Content-Type': 'text/html' });
             return res.end(`
-              <script>
-                alert("An account with this email already exists (in Doctors)!");
-                window.location.href = "/Admin.html";
-              </script>
+              <div class="alert alert-danger" role="alert">
+                Error hashing password.
+              </div>
             `);
           }
 
-          bcrypt.hash(password, saltRounds, (err, hashedPassword) => {
-            if (err) {
-              console.error('Password hashing error:', err);
-              res.writeHead(500, { 'Content-Type': 'text/plain' });
-              return res.end('Error hashing password');
-            }
-
-            if (type === 'Doctor') {
-              db.run(
-                'INSERT INTO Doctors (email, surname, last_name, password, specialization) VALUES (?, ?, ?, ?, ?)',
-                [email, surname, last_name, hashedPassword, specialization],
-                (err) => {
-                  if (err) {
-                    console.error('DB Insert error (Doctor):', err);
-                    res.writeHead(500, { 'Content-Type': 'text/plain' });
-                    return res.end('Error saving doctor');
-                  }
-
-                  res.writeHead(200, { 'Content-Type': 'text/html' });
-                  res.end(`
-                    <script>
-                      alert("Doctor account created successfully!");
-                      window.location.href = "/Admin.html";
-                    </script>
+          if (type === 'Doctor') {
+            db.run(
+              'INSERT INTO Doctors (email, surname, last_name, password, specialization) VALUES (?, ?, ?, ?, ?)',
+              [email, surname, last_name, hashedPassword, specialization],
+              err => {
+                if (err) {
+                  console.error('DB Insert error (Doctor):', err);
+                  res.writeHead(500, { 'Content-Type': 'text/html' });
+                  return res.end(`
+                    <div class="alert alert-danger" role="alert">
+                      Error saving doctor to the database.
+                    </div>
                   `);
                 }
-              );
-            } else {
-              db.run(
-                'INSERT INTO Patients (email, surname, last_name, password) VALUES (?, ?, ?, ?)',
-                [email, surname, last_name, hashedPassword],
-                (err) => {
-                  if (err) {
-                    console.error('DB Insert error (Patient):', err);
-                    res.writeHead(500, { 'Content-Type': 'text/plain' });
-                    return res.end('Error saving patient');
-                  }
 
-                  res.writeHead(200, { 'Content-Type': 'text/html' });
-                  res.end(`
-                    <script>
-                      alert("Patient account created successfully!");
-                      window.location.href = "/Admin.html";
-                    </script>
+                res.writeHead(200, { 'Content-Type': 'text/html' });
+                return res.end(`
+                  <div class="alert alert-success" role="alert">
+                    Doctor account created successfully!
+                  </div>
+                `);
+              }
+            );
+          } else {
+            db.run(
+              'INSERT INTO Patients (email, surname, last_name, password) VALUES (?, ?, ?, ?)',
+              [email, surname, last_name, hashedPassword],
+              err => {
+                if (err) {
+                  console.error('DB Insert error (Patient):', err);
+                  res.writeHead(500, { 'Content-Type': 'text/html' });
+                  return res.end(`
+                    <div class="alert alert-danger" role="alert">
+                      Error saving patient to the database.
+                    </div>
                   `);
                 }
-              );
-            }
-          });
+
+                res.writeHead(200, { 'Content-Type': 'text/html' });
+                return res.end(`
+                  <div class="alert alert-success" role="alert">
+                    Patient account created successfully!
+                  </div>
+                `);
+              }
+            );
+          }
         });
       });
     });
+  });
 
-    return;
+  return;
   }
   if (req.method === 'POST' && req.url === '/schedule') {
   let body = '';
@@ -455,11 +613,6 @@ const server = http.createServer((req, res) => {
         </div>
       `);
     }
-
-      // Here we grab all available slots on the date and specialization where:
-      // - slot is not yet booked (Appointments.id IS NULL)
-      // - slot start_time is >= requested time (meaning same or later)
-      // - ordered ascending by start_time to find earliest next slot
       const sql = `
         SELECT 
           Schedule.id as schedule_id,
@@ -568,6 +721,29 @@ const server = http.createServer((req, res) => {
 
   return;
   }
+  if (req.method === 'POST' && req.url === '/add-notes') {
+  let body = '';
+  req.on('data', chunk => body += chunk);
+  req.on('end', () => {
+    const { appointment_id, notes } = Object.fromEntries(new URLSearchParams(body));
+
+    if (!appointment_id || !notes) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ success: false, error: 'Missing fields' }));
+    }
+
+    db.run('UPDATE Appointments SET notes = ? WHERE id = ?', [notes, appointment_id], function (err) {
+      if (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ success: false, error: 'Database error' }));
+      }
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true }));
+    });
+  });
+  return;
+  }
 
 
 
@@ -577,31 +753,6 @@ const server = http.createServer((req, res) => {
   res.writeHead(404);
   res.end('Not found');
 });
-
-  function parseCookies(req) {
-  const list = {};
-  const cookieHeader = req.headers?.cookie;
-  if (!cookieHeader) return list;
-
-  cookieHeader.split(';').forEach(cookie => {
-    const [name, ...rest] = cookie.trim().split('=');
-    const value = rest.join('=');
-    list[name] = decodeURIComponent(value);
-  });
-
-  return list;
-}
-function timeToMinutes(t) {
-  const [h, m] = t.split(':').map(Number);
-  return h * 60 + m;
-}
-
-function minutesToTime(m) {
-  const h = Math.floor(m / 60);
-  const min = m % 60;
-  return `${h.toString().padStart(2, '0')}:${min.toString().padStart(2, '0')}`;
-}
-
 
 server.listen(3000, () => {
   console.log('Server running at http://localhost:3000');

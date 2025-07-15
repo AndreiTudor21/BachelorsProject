@@ -11,7 +11,7 @@
 </head>
 <body>
     <div class="d-flex justify-content-center align-items-center vh-100 vw-100">
-        <form action = "/submit" method = "post" id="loginform">
+        <form action = "/submit" method = "post" id="registerForm">
             <div class="input-group">
                 <input type="email" name="email" class="form-control" id="InputEmail" aria-describedby="emailHelp" placeholder="Enter email" required>
                 <button class="btn btn-outline-secondary" type="button" id="clearInputEmail">
@@ -43,6 +43,7 @@
                 </button>
             </div>
             <a class="forgot_text" href="./LogIn.html">Already have an Account?</a>
+            <div id="register-alert-container"></div>
             <div id=buttonwrapper>
                  <button class="btn btn-dark" type="submit" id="button_create">Create New Account</button>
             </div>
