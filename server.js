@@ -31,8 +31,6 @@ const db = require('./database/db');
   return `${h.toString().padStart(2, '0')}:${min.toString().padStart(2, '0')}`;
   }
 
-
-
 const server = http.createServer((req, res) => {
   if (req.method === 'GET' && req.url.startsWith('/static/')) {
     const filePath = path.join(__dirname, req.url);
@@ -687,21 +685,18 @@ const server = http.createServer((req, res) => {
       return res.end(JSON.stringify({ error: 'Missing required info or not logged in' }));
     }
 
-    // Get patient id
     db.get('SELECT id FROM Patients WHERE email = ?', [patientEmail], (err, patient) => {
       if (err || !patient) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
         return res.end(JSON.stringify({ error: 'Patient not found' }));
       }
 
-      // Check if slot already booked
       db.get('SELECT * FROM Appointments WHERE schedule_id = ?', [schedule_id], (err, appointment) => {
         if (appointment) {
           res.writeHead(409, { 'Content-Type': 'application/json' });
           return res.end(JSON.stringify({ error: 'Slot already booked' }));
         }
 
-        // Insert appointment
         db.run(
           'INSERT INTO Appointments (patient_id, schedule_id, status) VALUES (?, ?, ?)',
           [patient.id, schedule_id, 0],
